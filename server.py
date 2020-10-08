@@ -4,7 +4,6 @@ import os
 import base64
 import rsa
 from flask import Flask, request
-from Crypto.Cipher import AES, PKCS1_OAEP
 
 app = Flask(__name__)
 
