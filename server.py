@@ -7,11 +7,25 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
+db = {
+    'admin': {
+        'password': 'admin'
+    },
+    'Bob': {
+        'password': 'Bob'
+    },
+    'Alice': {
+        'password': 'Alice'
+    }
+}
+
 @app.route('/login', methods = ['POST'])
 def login():
-    body = request.get_json(force=True)
+    body = request.get_json()
     print('Request body:', body)
-    #check user credentials here
+    username, password = body['username'], body['password']
+    if db.get(username, {}).get('password') != password:
+        return json.dumps({'result_msg': "Invalid username or password"}), 401
     try:
         pub_key = rsa.PublicKey(int(body['n']), int(body['e']))
     except:
@@ -24,5 +38,3 @@ def login():
 
 if __name__ == '__main__':
     app.run()
-    
-    
