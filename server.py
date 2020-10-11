@@ -6,7 +6,7 @@ import rsa
 import struct
 from time import time
 from flask import Flask, request
-from Crypto.Cipher import AES
+from aes import encrypt_file, decrypt_file
 
 app = Flask(__name__)
 
@@ -59,33 +59,45 @@ def read():
     print('Request body:', body)
 
     user = db.get(body['username'], {})
-    if not user.get('session_key') or is_key_expired(user.get('session_key_created_at')):
+    if is_user_session_expired(user):
         return json.dumps({'result_msg': 'Session key is not valid.'}), 401
     
     key = user.get('session_key')
     filename = body['filename']
     return encrypt_file(key, os.path.join(APP_TEXTS, filename)), 200
 
-def encrypt_file(key, filepath):
-    cipher = AES.new(key, AES.MODE_OCB)
+@app.route('/update', methods = ['POST'])
+def update():
+    body = request.get_json()
+    print('Request body:', body)
 
-    file_text = b''
-    with open(filepath, 'rb') as fin:
-        file_text = fin.read()
-    chipher_text, tag = cipher.encrypt_and_digest(file_text)
-    json_k = [ 'nonce', 'cipher_text', 'tag' ]
-    json_v = [ b64encode(item).decode('utf-8') for item in [cipher.nonce, chipher_text, tag] ]
-    return json.dumps(dict(zip(json_k, json_v)))
+    user = db.get(body['username'], {})
+    if is_user_session_expired(user):
+        return json.dumps({'result_msg': 'Session key is not valid.'}), 401
 
-def write_verif_file(key, data):  
-    b64 = json.loads(data)
-    json_k = [ 'nonce', 'cipher_text', 'tag' ]
-    json_v = {k:b64decode(b64[k]) for k in json_k}
+    json_k = ['session_key', 'filename', 'cipher_text', 'nonce', 'tag']
+    key, filename, cipher_text, nonce, tag = [body[x] for x in json_k]
 
-    cipher = AES.new(key, AES.MODE_OCB, nonce=json_v['nonce'])
-    plain_text = cipher.decrypt_and_verify(json_v['cipher_text'], json_v['tag'])
-    with open('verify.txt', 'wb') as fout:
-        fout.write(plain_text)
+    try:   
+        plain_text = decrypt_file(key, nonce, cipher_text, tag)
+        with open(os.path.join(APP_TEXTS, filename), 'w') as fout:
+            fout.write(plain_text)
+    except:
+        return json.dumps({'result_msg': 'Something went wrong.'}), 400
+    
+    return json.dumps({'result_msg': "Nice! Thank you! Done!"}), 200
+
+# def write_verif_file(key, data):  
+#     b64 = json.loads(data)
+#     json_k = [ 'nonce', 'cipher_text', 'tag' ]
+#     json_v = {k:b64decode(b64[k]) for k in json_k}
+
+#     plain_text = decrypt_file(key, json_v['nonce'], json_v['cipher_text'], json_v['tag'])
+#     with open('verify.txt', 'wb') as fout:
+#         fout.write(plain_text)
+
+def is_user_session_expired(user):
+    return not user.get('session_key') or is_key_expired(user.get('session_key_created_at'))
 
 if __name__ == '__main__':
     app.run()
