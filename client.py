@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QListWidget, QPushButton, QMainWindow, QDialogButtonBox, QLineEdit, QLabel, QFormLayout, QDialog, QRadioButton
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QListWidget, QPushButton, QMainWindow, QDialogButtonBox, QLineEdit, QLabel, QFormLayout, QDialog, QRadioButton, QMessageBox
 from PyQt5 import QtCore, QtGui
 from aes import encrypt_text, decrypt_file
 import rsa
@@ -38,6 +38,37 @@ def get_file_content(filename):
         return aes.decrypt_file(session_key, json_vals['nonce'], json_vals['cipher_text'], 
                 json_vals['tag']).decode('utf8')
 
+def update_file(filename, text):
+        data = encrypt_text(session_key, text.encode('utf8'))
+        res = json.loads(data)
+        res['username'] = username
+        res['filename'] = filename
+        requests.post(SERVER_ADDRESS + '/update', json=res)
+
+class FilenameDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('Filename?')
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        
+        self.filename_widget = QLineEdit()
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.filename_widget)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+    def accept(self):
+        self.done(0)
+    
+    def reject(self):
+        self.done(1)
+
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -53,6 +84,7 @@ class MainWindow(QWidget):
 
         ### Buttons ###
         self.pb_create = QPushButton('New')
+        self.pb_create.clicked.connect(self.create_file)
         self.pb_save = QPushButton('Save')
         self.pb_save.clicked.connect(self.save_file)
         self.pb_delete = QPushButton('Delete')
@@ -70,12 +102,7 @@ class MainWindow(QWidget):
         self.show()
     
     def save_file(self):
-        text = self.editor_widget.document().toPlainText()
-        data = encrypt_text(session_key, text.encode('utf8'))
-        res = json.loads(data)
-        res['username'] = username
-        res['filename'] = self.filelist_widget.currentItem().text()
-        requests.post(SERVER_ADDRESS + '/update', json=res)
+        update_file(self.filelist_widget.currentItem().text(), self.editor_widget.document().toPlainText()) 
 
     def delete_file(self):
         try:
@@ -89,7 +116,12 @@ class MainWindow(QWidget):
             self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
         except:
             self.editor_widget.document().setPlainText('')
-            pass
+
+    def create_file(self):
+        dlg = FilenameDialog() 
+        if not dlg.exec():
+            update_file(dlg.filename_widget.text(), '')
+            self.update_filelist()
 
     def update_filelist(self):
         self.filelist_widget.clear()
