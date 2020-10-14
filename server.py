@@ -87,6 +87,18 @@ def update():
     
     return json.dumps({'result_msg': "Nice! Thank you! Done!"}), 200
 
+@app.route('/filelist', methods = ['POST'])
+def filelist():
+    body = request.get_json()
+    print('Request body:', body)
+
+    user = db.get(body['username'], {})
+    if is_user_session_expired(user):
+        return json.dumps({'result_msg': 'Session key is not valid.'}), 401
+
+    files = [f for f in os.listdir('texts')]
+
+    return json.dumps({'files': files}), 200
 # def write_verif_file(key, data):  
 #     b64 = json.loads(data)
 #     json_k = [ 'nonce', 'cipher_text', 'tag' ]
