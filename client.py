@@ -43,7 +43,7 @@ def update_file(filename, text):
         res = json.loads(data)
         res['username'] = username
         res['filename'] = filename
-        requests.post(SERVER_ADDRESS + '/update', json=res)
+        return requests.post(SERVER_ADDRESS + '/update', json=res)
 
 class FilenameDialog(QDialog):
     def __init__(self):
@@ -77,11 +77,6 @@ class MainWindow(QWidget):
         ### Editor ###
         self.editor_widget = QTextEdit()
 
-        ### Filelist ###
-        self.filelist_widget = QListWidget()
-        self.filelist_widget.currentItemChanged.connect(self.update_file)
-        self.update_filelist()
-
         ### Buttons ###
         self.pb_create = QPushButton('New')
         self.pb_create.clicked.connect(self.create_file)
@@ -89,6 +84,12 @@ class MainWindow(QWidget):
         self.pb_save.clicked.connect(self.save_file)
         self.pb_delete = QPushButton('Delete')
         self.pb_delete.clicked.connect(self.delete_file)
+        self.label = QLabel()
+
+        ### Filelist ###
+        self.filelist_widget = QListWidget()
+        self.filelist_widget.currentItemChanged.connect(self.update_file)
+        self.update_filelist()
 
         ### Layout ###
         self.layout = QVBoxLayout()
@@ -97,21 +98,25 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.pb_create)
         self.layout.addWidget(self.pb_save)
         self.layout.addWidget(self.pb_delete)
+        self.layout.addWidget(self.label)
 
         self.setLayout(self.layout)
         self.show()
     
     def save_file(self):
-        update_file(self.filelist_widget.currentItem().text(), self.editor_widget.document().toPlainText()) 
+        response = update_file(self.filelist_widget.currentItem().text(), self.editor_widget.document().toPlainText()) 
+        self.update_status_label(response)
 
     def delete_file(self):
         try:
-            requests.post(SERVER_ADDRESS + '/delete', json={'username': username, 'filename': self.filelist_widget.currentItem().text()})
+            resp = requests.post(SERVER_ADDRESS + '/delete', json={'username': username, 'filename': self.filelist_widget.currentItem().text()})
+            self.update_status_label(resp)
         except:
             pass
         self.update_filelist()
 
     def update_file(self):
+        self.label.setText('')
         try:
             self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
         except:
@@ -120,7 +125,8 @@ class MainWindow(QWidget):
     def create_file(self):
         dlg = FilenameDialog() 
         if not dlg.exec():
-            update_file(dlg.filename_widget.text(), '')
+            response = update_file(dlg.filename_widget.text(), '')
+            self.update_status_label(response)
             self.update_filelist()
 
     def update_filelist(self):
@@ -128,6 +134,9 @@ class MainWindow(QWidget):
         for f in get_filelist():
             self.filelist_widget.addItem(f)
         self.filelist_widget.setCurrentRow(0)
+
+    def update_status_label(self, response):
+        self.label.setText(response.json().get('result_msg', ''))
 
 class AuthDialog(QDialog):
     def __init__(self, parent=None):
