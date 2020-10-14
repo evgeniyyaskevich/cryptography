@@ -96,7 +96,7 @@ def filelist():
     if is_user_session_expired(user):
         return json.dumps({'result_msg': 'Session key is not valid.'}), 401
 
-    files = [f for f in os.listdir('texts')]
+    files = [f for f in os.listdir(APP_TEXTS)]
 
     return json.dumps({'files': files}), 200
 # def write_verif_file(key, data):  
