@@ -1,13 +1,17 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QListWidget, QPushButton, QMainWindow, QDialogButtonBox, QLineEdit, QLabel, QFormLayout, QDialog, QRadioButton
 from PyQt5 import QtCore, QtGui
+from aes import encrypt_text, decrypt_file
 import rsa
 import base64
 import requests
 import aes
 import sys
+import json
 
 RSA_KEY_SIZE = 512
 SERVER_ADDRESS = 'http://localhost:5000'
+
+username = ''
 
 def login(username, passwd):
     (pubkey, privkey) = rsa.newkeys(RSA_KEY_SIZE)
@@ -20,12 +24,12 @@ def login(username, passwd):
 
 def get_filelist():
     r = requests.post(SERVER_ADDRESS + '/filelist',
-        json={'username': 'Bob'})
+        json={'username': username})
     return r.json().get('files')
 
 def get_file_content(filename):
         r = requests.post(SERVER_ADDRESS + '/read',
-        json={'username': 'Bob', 'filename': filename})
+        json={'username': username, 'filename': filename})
 
         b64 = r.json()
         json_keys = [ 'nonce', 'cipher_text', 'tag' ]
@@ -51,6 +55,7 @@ class MainWindow(QWidget):
         ### Buttons ###
         self.pb_create = QPushButton('New')
         self.pb_save = QPushButton('Save')
+        self.pb_save.clicked.connect(self.save_file)
         self.pb_delete = QPushButton('Delete')
 
         ### Layout ###
@@ -64,6 +69,14 @@ class MainWindow(QWidget):
         self.setLayout(self.layout)
         self.show()
     
+    def save_file(self):
+        text = self.editor_widget.document().toPlainText()
+        data = encrypt_text(session_key, text.encode('utf8'))
+        res = json.loads(data)
+        res['username'] = username
+        res['filename'] = self.filelist_widget.currentItem().text()
+        requests.post(SERVER_ADDRESS + '/update', json=res)
+
     def update_file(self):
         self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
 
@@ -112,6 +125,8 @@ class AuthDialog(QDialog):
 
         if not errorMsg:
             self.session_key = res
+            global username
+            username = user['username']
             self.done(0)
         else:
             self.label.setText(errorMsg)

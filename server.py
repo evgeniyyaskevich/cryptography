@@ -75,12 +75,14 @@ def update():
     if is_user_session_expired(user):
         return json.dumps({'result_msg': 'Session key is not valid.'}), 401
 
-    json_k = ['session_key', 'filename', 'cipher_text', 'nonce', 'tag']
-    key, filename, cipher_text, nonce, tag = [body[x] for x in json_k]
+    key = user.get('session_key')
+    filename = body['filename']
+    json_k = ['cipher_text', 'nonce', 'tag']
+    cipher_text, nonce, tag = [b64decode(body[item]) for item in json_k]
 
     try:   
         plain_text = decrypt_file(key, nonce, cipher_text, tag)
-        with open(os.path.join(APP_TEXTS, filename), 'w') as fout:
+        with open(os.path.join(APP_TEXTS, filename), 'wb') as fout:
             fout.write(plain_text)
     except:
         return json.dumps({'result_msg': 'Something went wrong.'}), 400
@@ -99,20 +101,9 @@ def filelist():
     files = [f for f in os.listdir(APP_TEXTS)]
 
     return json.dumps({'files': files}), 200
-# def write_verif_file(key, data):  
-#     b64 = json.loads(data)
-#     json_k = [ 'nonce', 'cipher_text', 'tag' ]
-#     json_v = {k:b64decode(b64[k]) for k in json_k}
-
-#     plain_text = decrypt_file(key, json_v['nonce'], json_v['cipher_text'], json_v['tag'])
-#     with open('verify.txt', 'wb') as fout:
-#         fout.write(plain_text)
 
 def is_user_session_expired(user):
     return not user.get('session_key') or is_key_expired(user.get('session_key_created_at'))
 
 if __name__ == '__main__':
     app.run()
-    # session_key = rsa.randnum.read_random_bits(128)
-    # json_res = encrypt_file(session_key, os.path.join(APP_TEXTS, 'if.txt'))
-    # write_verif_file(session_key, json_res)
