@@ -43,20 +43,20 @@ class MainWindow(QWidget):
         super().__init__(parent)
         self.setWindowTitle('Cryptography')
 
-        ### Filelist ###
-        self.filelist_widget = QListWidget()
-        for f in get_filelist():
-            self.filelist_widget.addItem(f)
-        self.filelist_widget.currentItemChanged.connect(self.update_file)
-
         ### Editor ###
         self.editor_widget = QTextEdit()
+
+        ### Filelist ###
+        self.filelist_widget = QListWidget()
+        self.filelist_widget.currentItemChanged.connect(self.update_file)
+        self.update_filelist()
 
         ### Buttons ###
         self.pb_create = QPushButton('New')
         self.pb_save = QPushButton('Save')
         self.pb_save.clicked.connect(self.save_file)
         self.pb_delete = QPushButton('Delete')
+        self.pb_delete.clicked.connect(self.delete_file)
 
         ### Layout ###
         self.layout = QVBoxLayout()
@@ -77,8 +77,25 @@ class MainWindow(QWidget):
         res['filename'] = self.filelist_widget.currentItem().text()
         requests.post(SERVER_ADDRESS + '/update', json=res)
 
+    def delete_file(self):
+        try:
+            requests.post(SERVER_ADDRESS + '/delete', json={'username': username, 'filename': self.filelist_widget.currentItem().text()})
+        except:
+            pass
+        self.update_filelist()
+
     def update_file(self):
-        self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
+        try:
+            self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
+        except:
+            self.editor_widget.document().setPlainText('')
+            pass
+
+    def update_filelist(self):
+        self.filelist_widget.clear()
+        for f in get_filelist():
+            self.filelist_widget.addItem(f)
+        self.filelist_widget.setCurrentRow(0)
 
 class AuthDialog(QDialog):
     def __init__(self, parent=None):
@@ -143,4 +160,4 @@ if __name__ == '__main__':
         session_key = authDlg.session_key
         window = MainWindow()
         window.show()
-    sys.exit(app.exec_())
+        sys.exit(app.exec_())
