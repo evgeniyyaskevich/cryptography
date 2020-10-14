@@ -99,7 +99,7 @@ def delete():
         return json.dumps({'result_msg': 'Session key is not valid.'}), 401
 
     try:
-        os.remove(os.path.join(APP_ROOT, body['filename']))
+        os.remove(os.path.join(APP_TEXTS, body['filename']))
     except:
         return json.dumps({'result_msg': 'Something went wrong.'}), 400
     
