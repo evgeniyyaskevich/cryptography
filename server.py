@@ -86,8 +86,24 @@ def update():
             fout.write(plain_text)
     except:
         return json.dumps({'result_msg': 'Something went wrong.'}), 400
-    
+
     return json.dumps({'result_msg': "Nice! Thank you! Done!"}), 200
+
+@app.route('/delete', methods = ['POST'])
+def delete():
+    body = request.get_json()
+    print('Request body:', body)
+
+    user = db.get(body['username'], {})
+    if is_user_session_expired(user):
+        return json.dumps({'result_msg': 'Session key is not valid.'}), 401
+
+    try:
+        os.remove(os.path.join(APP_ROOT, body['filename']))
+    except:
+        return json.dumps({'result_msg': 'Something went wrong.'}), 400
+    
+    return json.dumps({'result_msg': "Nice! Thank you for clearing our server!"}), 200
 
 @app.route('/filelist', methods = ['POST'])
 def filelist():
