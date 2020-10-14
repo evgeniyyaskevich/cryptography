@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QListWidget, QPushButton, QMainWindow
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QListWidget, QPushButton, QMainWindow, QDialogButtonBox, QLineEdit, QLabel, QFormLayout, QDialog, QRadioButton
+from PyQt5 import QtCore, QtGui
 import rsa
 import base64
 import requests
 import aes
+import sys
 
 RSA_KEY_SIZE = 512
 SERVER_ADDRESS = 'http://localhost:5000'
@@ -12,10 +14,9 @@ def login(username, passwd):
     r = requests.post(SERVER_ADDRESS + '/login', 
         json={'n': pubkey['n'], 'e': pubkey['e'], 'username': username, 'password': passwd})
     if r.ok:
-        session_key = rsa.decrypt(base64.b64decode(r.json()['session_key'].encode('utf8')), privkey)
+        return rsa.decrypt(base64.b64decode(r.json()['session_key'].encode('utf8')), privkey)
     else:
-        print('Error msg:', r.json().get('result_msg'))
-    return session_key
+        return {'error': r.json().get('result_msg')}
 
 def get_filelist():
     r = requests.post(SERVER_ADDRESS + '/filelist',
@@ -66,9 +67,65 @@ class MainWindow(QWidget):
     def update_file(self):
         self.editor_widget.document().setPlainText(get_file_content(self.filelist_widget.currentItem().text()))
 
-if __name__ == '__main__':
-    session_key = login('Bob', 'Bob')
+class AuthDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Cryptography')
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        dlgLayout = QVBoxLayout()
+        formLayout = QFormLayout()
 
-    app = QApplication([])
-    window = MainWindow()
-    app.exec_()
+        self.label = QLabel()
+        pal = self.label.palette()
+        pal.setColor(QtGui.QPalette.WindowText, QtGui.QColor("red"))
+        self.label.setPalette(pal)
+        formLayout.addRow(self.label)
+
+        self.login_field = QLineEdit()
+        formLayout.addRow('Login:', self.login_field)
+        self.passwd_field = QLineEdit(echoMode=QLineEdit.Password)
+        formLayout.addRow('Password:', self.passwd_field)
+
+        dlgLayout.addLayout(formLayout)
+        btns = QDialogButtonBox()
+        btns.setStandardButtons(QDialogButtonBox.Cancel)
+        btns.rejected.connect(self.reject)
+
+        signInButton = QPushButton('SignIn')
+        signInButton.clicked.connect(self.signIn)
+
+        btns.addButton(signInButton, QDialogButtonBox.ActionRole)
+
+        dlgLayout.addWidget(btns)
+        self.setLayout(dlgLayout)
+
+    def extractUser(self):
+        return {
+            'username': self.login_field.text(),
+            'password': self.passwd_field.text()
+        }
+
+    def signIn(self):
+        user = AuthDialog.extractUser(self)
+        res = login(user['username'], user['password'])
+        errorMsg = res.get('error', '') if type(res) is dict else ''
+
+        if not errorMsg:
+            self.session_key = res
+            self.done(0)
+        else:
+            self.label.setText(errorMsg)
+
+    def reject(self):
+        self.done(1)
+
+if __name__ == '__main__':
+    session_key = b''
+
+    app = QApplication(sys.argv)
+    authDlg = AuthDialog()
+    if not authDlg.exec_():
+        session_key = authDlg.session_key
+        window = MainWindow()
+        window.show()
+    sys.exit(app.exec_())
