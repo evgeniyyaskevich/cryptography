@@ -17,6 +17,8 @@ def login(username, passwd):
     (pubkey, privkey) = rsa.newkeys(RSA_KEY_SIZE)
     r = requests.post(SERVER_ADDRESS + '/login', 
         json={'n': pubkey['n'], 'e': pubkey['e'], 'username': username, 'password': passwd})
+    if r.status_code == 401:
+        raise Exception('Time out')
     if r.ok:
         return rsa.decrypt(base64.b64decode(r.json()['session_key'].encode('utf8')), privkey)
     else:
@@ -25,11 +27,16 @@ def login(username, passwd):
 def get_filelist():
     r = requests.post(SERVER_ADDRESS + '/filelist',
         json={'username': username})
+    if r.status_code == 401:
+        raise Exception('Time out')
     return r.json().get('files')
 
 def get_file_content(filename):
         r = requests.post(SERVER_ADDRESS + '/read',
         json={'username': username, 'filename': filename})
+
+        if r.status_code == 401:
+            raise Exception('Time out')
 
         b64 = r.json()
         json_keys = [ 'nonce', 'cipher_text', 'tag' ]
@@ -43,7 +50,10 @@ def update_file(filename, text):
         res = json.loads(data)
         res['username'] = username
         res['filename'] = filename
-        return requests.post(SERVER_ADDRESS + '/update', json=res)
+        r = requests.post(SERVER_ADDRESS + '/update', json=res)
+        if r.status_code == 401:
+            raise Exception('Time out')
+        return r 
 
 class FilenameDialog(QDialog):
     def __init__(self):
@@ -109,10 +119,13 @@ class MainWindow(QWidget):
 
     def delete_file(self):
         try:
-            resp = requests.post(SERVER_ADDRESS + '/delete', json={'username': username, 'filename': self.filelist_widget.currentItem().text()})
-            self.update_status_label(resp)
+            filename = self.filelist_widget.currentItem().text()
         except:
             pass
+        resp = requests.post(SERVER_ADDRESS + '/delete', json={'username': username, 'filename': filename})
+        if resp.status_code == 401:
+            raise Exception('Time out')
+        self.update_status_label(resp)
         self.update_filelist()
 
     def update_file(self):
