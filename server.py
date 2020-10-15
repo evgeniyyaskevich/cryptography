@@ -22,7 +22,7 @@ db = {
     }
 }
 
-SESSION_KEY_EXPIRATION_TIME = 60 #seconds
+SESSION_KEY_EXPIRATION_TIME = 10 #seconds
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 APP_TEXTS = os.path.join(APP_ROOT, 'texts')
 
@@ -99,7 +99,7 @@ def delete():
         return json.dumps({'result_msg': 'Session key is not valid.'}), 401
 
     try:
-        os.remove(os.path.join(APP_TEXTS, body['filename']))
+        os.remove(os.path.join(APP_ROOT, body['filename']))
     except:
         return json.dumps({'result_msg': 'Something went wrong.'}), 400
     
